@@ -1,1 +1,1 @@
-Di clone atau download zip, nanti bisa diplay si scenes/samplescenes
+Di clone atau download zip, nanti bisa diplay di scenes/samplescenes
