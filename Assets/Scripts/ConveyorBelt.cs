@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 [System.Serializable]
@@ -21,8 +21,16 @@ public class ConveyorBelt : MonoBehaviour
     [SerializeField] private Transform itemParent;
     [SerializeField] private float spawnInterval = 2f;
 
-    private List<ConveyorBeltItem> _items = new List<ConveyorBeltItem>();
+    private readonly List<ConveyorBeltItem> _items = new();
     private float spawnTimer = 0f;
+
+    private void Start()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            SpawnNewItem();
+        }
+    }
 
     private void Update()
     {
@@ -39,60 +47,75 @@ public class ConveyorBelt : MonoBehaviour
 
     private void SpawnNewItem()
     {
-        if (itemPrefabs.Count == 0) return;
+        if (itemPrefabs.Count == 0 || _lineRenderer.positionCount < 2)
+            return;
 
-        GameObject randomPrefab = itemPrefabs[Random.Range(0, itemPrefabs.Count)];
-        GameObject newItemObj = Instantiate(randomPrefab, _lineRenderer.GetPosition(0), Quaternion.identity, itemParent);
+        GameObject prefab = itemPrefabs[Random.Range(0, itemPrefabs.Count)];
+        GameObject newItem = Instantiate(prefab, _lineRenderer.GetPosition(0), Quaternion.identity, itemParent);
 
-        ConveyorBeltItem newItem = new ConveyorBeltItem
+        _items.Add(new ConveyorBeltItem
         {
-            item = newItemObj.transform,
+            item = newItem.transform,
             currentLerp = 0f,
             StartPoint = 0
-        };
-
-        _items.Add(newItem);
+        });
     }
-
 
     private void MoveItems()
     {
         for (int i = 0; i < _items.Count; i++)
         {
-            ConveyorBeltItem beltItem = _items[i];
-            Transform item = beltItem.item;
+            ConveyorBeltItem current = _items[i];
 
-            // Jaga jarak antar item
-            if (i > 0)
+            // Skip null/destroyed item
+            if (current.item == null)
             {
-                float distToPrev = Vector3.Distance(item.position, _items[i - 1].item.position);
-                if (distToPrev <= itemSpacing)
-                    continue;
+                _items.RemoveAt(i);
+                i--;
+                continue;
             }
 
-            // Gerakkan item di sepanjang segment LineRenderer
-            Vector3 start = _lineRenderer.GetPosition(beltItem.StartPoint);
-            Vector3 end = _lineRenderer.GetPosition(beltItem.StartPoint + 1);
-
-            item.position = Vector3.Lerp(start, end, beltItem.currentLerp);
-
-            float segmentDistance = Vector3.Distance(start, end);
-            beltItem.currentLerp += (speed * Time.deltaTime) / segmentDistance;
-
-            // Jika item sudah mencapai ujung segment
-            if (beltItem.currentLerp >= 1f)
+            // Prevent moving if spacing to previous is too small
+            if (i > 0)
             {
-                if (beltItem.StartPoint + 2 < _lineRenderer.positionCount)
+                ConveyorBeltItem previous = _items[i - 1];
+                if (previous?.item != null)
                 {
-                    beltItem.currentLerp = 0f;
-                    beltItem.StartPoint++;
+                    float dist = (current.item.position - previous.item.position).sqrMagnitude;
+                    if (dist < itemSpacing * itemSpacing)
+                        continue;
+                }
+            }
+
+            // Get start and end points
+            if (current.StartPoint + 1 >= _lineRenderer.positionCount) continue;
+
+            Vector3 start = _lineRenderer.GetPosition(current.StartPoint);
+            Vector3 end = _lineRenderer.GetPosition(current.StartPoint + 1);
+
+            float segmentLength = Vector3.Distance(start, end);
+            if (segmentLength <= 0.001f) continue;
+
+            // Update position
+            current.currentLerp += (speed * Time.deltaTime) / segmentLength;
+            current.currentLerp = Mathf.Clamp01(current.currentLerp); // avoid overshoot
+
+            current.item.position = Vector3.Lerp(start, end, current.currentLerp);
+
+            // Transition to next segment
+            if (current.currentLerp >= 1f)
+            {
+                if (current.StartPoint + 2 < _lineRenderer.positionCount)
+                {
+                    current.StartPoint++;
+                    current.currentLerp = 0f;
                 }
                 else
                 {
-                    // Hapus item di ujung conveyor
-                    Destroy(item.gameObject);
+                    // Reached end
+                    Destroy(current.item.gameObject);
                     _items.RemoveAt(i);
-                    i--; // supaya loop tidak skip item selanjutnya
+                    i--;
                 }
             }
         }

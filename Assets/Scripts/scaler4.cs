@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Scaler : MonoBehaviour
+public class Scaler4 : MonoBehaviour
 {
     [SerializeField] private float yScaleMultiplier = 5f;
     private Vector3 originalScale;
@@ -14,7 +14,7 @@ public class Scaler : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.K))
         {
             Vector3 newScale = originalScale;
             newScale.y *= yScaleMultiplier;
@@ -25,7 +25,7 @@ public class Scaler : MonoBehaviour
             boxCollider.enabled = true;
         }
 
-        if (Input.GetKeyUp(KeyCode.Space))
+        if (Input.GetKeyUp(KeyCode.K))
         {
             transform.localScale = originalScale;
 
